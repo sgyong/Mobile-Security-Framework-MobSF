@@ -3,7 +3,7 @@
 
 import platform
 import subprocess
-import os
+import os,re
 
 from django.conf import settings
 
@@ -26,6 +26,11 @@ def dex_2_jar(app_path, app_dir, tools_dir):
         working_dir = None
         args = []
         if settings.JAR_CONVERTER == "d2j":
+            dexlist=[]
+            files = os.listdir(app_dir)
+            for file in files:
+                if re.search("dex", file.split('.')[-1]):
+                    dexlist.append(file)
             print "[INFO] Using JAR converter - dex2jar"
             if len(settings.DEX2JAR_BINARY) > 0 and isFileExists(settings.DEX2JAR_BINARY):
                 d2j = settings.DEX2JAR_BINARY
@@ -38,13 +43,10 @@ def dex_2_jar(app_path, app_dir, tools_dir):
                     d2j = os.path.join(tools_dir, 'd2j2/d2j-dex2jar.sh')
                     subprocess.call(["chmod", "777", d2j])
                     subprocess.call(["chmod", "777", inv])
-            args = [
-                d2j,
-                app_dir + 'classes.dex',
-                '-f',
-                '-o',
-                app_dir + 'classes.jar'
-            ]
+            for dex in dexlist:
+                jarname=dex.replace('.dex','.jar')
+                args=[d2j,app_dir+dex,'-f','-o',app_dir +jarname]
+                subprocess.call(args)
         elif settings.JAR_CONVERTER == "enjarify":
             print "[INFO] Using JAR converter - Google enjarify"
             if len(settings.ENJARIFY_DIRECTORY) > 0 and isDirExists(settings.ENJARIFY_DIRECTORY):
@@ -71,10 +73,8 @@ def dex_2_jar(app_path, app_dir, tools_dir):
                     "-o",
                     app_dir + 'classes.jar'
                 ]
-        if working_dir:
+
             subprocess.call(args, cwd=working_dir)
-        else:
-            subprocess.call(args)
     except:
         PrintException("[ERROR] Converting Dex to JAR")
 
@@ -83,17 +83,23 @@ def dex_2_smali(app_dir, tools_dir):
     """Run dex2smali"""
     try:
         print "[INFO] DEX -> SMALI"
-        dex_path = app_dir + 'classes.dex'
-        if len(settings.BACKSMALI_BINARY) > 0 and isFileExists(settings.BACKSMALI_BINARY):
-            bs_path = settings.BACKSMALI_BINARY
-        else:
-            bs_path = os.path.join(tools_dir, 'baksmali.jar')
-        output = os.path.join(app_dir, 'smali_source/')
-        args = [
-            settings.JAVA_PATH + 'java',
-            '-jar', bs_path, dex_path, '-o', output
-        ]
-        subprocess.call(args)
+        dexlist=[]
+        files = os.listdir(app_dir)
+        for file in files:
+            if re.search("dex", file.split('.')[-1]):
+                    dexlist.append(file)
+        for dex in dexlist:
+           dex_path = app_dir + dex
+           if len(settings.BACKSMALI_BINARY) > 0 and isFileExists(settings.BACKSMALI_BINARY):
+              bs_path = settings.BACKSMALI_BINARY
+           else:
+             bs_path = os.path.join(tools_dir, 'baksmali.jar')
+             output = os.path.join(app_dir, 'smali_source/')
+             args = [
+               settings.JAVA_PATH + 'java',
+               '-jar', bs_path, dex_path, '-o', output
+             ]
+             subprocess.call(args)
     except:
         PrintException("[ERROR] Converting DEX to SMALI")
 
@@ -102,9 +108,15 @@ def jar_2_java(app_dir, tools_dir):
     """Conver jar to java."""
     try:
         print "[INFO] JAR -> JAVA"
-        jar_path = app_dir + 'classes.jar'
-        output = os.path.join(app_dir, 'java_source/')
-        if settings.DECOMPILER == 'jd-core':
+        jarlist=[]
+        files = os.listdir(app_dir)
+        for file in files:
+          if re.search("jar", file.split('.')[-1]):
+              jarlist.append(file)
+        for jarname in jarlist:
+          jar_path = app_dir + jarname
+          output = os.path.join(app_dir, 'java_source/')
+          if settings.DECOMPILER == 'jd-core':
             if (
                     len(settings.JD_CORE_DECOMPILER_BINARY) > 0 and
                     isFileExists(settings.JD_CORE_DECOMPILER_BINARY)
@@ -114,7 +126,7 @@ def jar_2_java(app_dir, tools_dir):
                 jd_path = os.path.join(tools_dir, 'jd-core.jar')
             args = [settings.JAVA_PATH + 'java',
                     '-jar', jd_path, jar_path, output]
-        elif settings.DECOMPILER == 'cfr':
+          elif settings.DECOMPILER == 'cfr':
             if (
                     len(settings.CFR_DECOMPILER_BINARY) > 0 and
                     isFileExists(settings.CFR_DECOMPILER_BINARY)
@@ -124,7 +136,7 @@ def jar_2_java(app_dir, tools_dir):
                 jd_path = os.path.join(tools_dir, 'cfr_0_119.jar')
             args = [settings.JAVA_PATH + 'java', '-jar',
                     jd_path, jar_path, '--outputdir', output]
-        elif settings.DECOMPILER == "procyon":
+          elif settings.DECOMPILER == "procyon":
             if (
                     len(settings.PROCYON_DECOMPILER_BINARY) > 0 and
                     isFileExists(settings.PROCYON_DECOMPILER_BINARY)
@@ -135,6 +147,6 @@ def jar_2_java(app_dir, tools_dir):
                     tools_dir, 'procyon-decompiler-0.5.30.jar')
             args = [settings.JAVA_PATH + 'java',
                     '-jar', pd_path, jar_path, '-o', output]
-        subprocess.call(args)
+          subprocess.call(args)
     except:
         PrintException("[ERROR] Converting JAR to JAVA")
